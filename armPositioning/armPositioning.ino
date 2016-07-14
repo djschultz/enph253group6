@@ -24,16 +24,29 @@ void loop() {
   Serial.println(servoTheta);
   Serial.println("Servo Phi");
   Serial.println(servoPhi);
-  double jointTheta = servoTheta/3.0 + 90.0;
-  double jointPhi = (servoPhi)/2.0 + 120;
+  double jointTheta = servoTheta/2.0 + 120.0;
+  double jointPhi = -(servoPhi)/2.0 + 90;
   Serial.println("Joint Theta");
   Serial.println(jointTheta);
   Serial.println("Joint Phi");
   Serial.println(jointPhi);
   }
-  
+
+  /*
   RCServo0.write(servoTheta);
   RCServo1.write(servoPhi);
+  */
+  
+  if(count%2 ==0){
+  RCServo0.write(23);
+  RCServo1.write(58);
+  } else{
+    RCServo0.write(14);
+    RCServo1.write(18);
+  }
+  
+  delay(2000);
+  
   count++; 
 }
 
