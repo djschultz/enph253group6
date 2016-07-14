@@ -5,19 +5,19 @@
 int motorLeft = 3;
 int motorRight = 0;
 
-const int QRDIntersectionPinLeft = 1;
-const int QRDIntersectionPinRight = 5;
+const int QRDIntersectionPinLeft = 5;
+const int QRDIntersectionPinRight = 1;
 const int QRDIntersectionPinMiddle = 3;
 
-const int QRDTapePinLeft = 2;
-const int QRDTapePinRight = 4;
+const int QRDTapePinLeft = 4;
+const int QRDTapePinRight = 2;
 
 const int multiplexSwitchPin = 8;
 
 // CLARIFYING CONSTANTS
 int defaultSpeed = 75;
 int count = 0;
-int numLoops = 2500;
+int numLoops = 500;
 bool LEFT = 1;
 bool RIGHT = 0;
 
@@ -63,7 +63,6 @@ void setup() {
 }
 
 void loop() {
-
   //change direction if startbutton is pressed
   if (startbutton()) {
     multiplexDir = !multiplexDir;
@@ -78,6 +77,8 @@ void loop() {
   // QRDs are true when there is tape below them
   QRDTapeRight = digitalRead(QRDTapePinRight);
   QRDTapeLeft = digitalRead(QRDTapePinLeft);
+  QRDIntersectionLeft = digitalRead(QRDIntersectionPinLeft);
+  QRDIntersectionRight = digitalRead(QRDIntersectionPinRight);
 
   if (QRDError != QRDErrorPrevDiff) {
     QRDErrorPrevDiff = QRDError;
@@ -120,96 +121,59 @@ void loop() {
   }
 
   // if the robot is off the tape, tape follow
-  if (QRDError != 0) {
-    // calculate the derivation & propotional gains
-    derivTerm = (QRDError - QRDErrorPrevDiff) / (timeCurr - QRDErrorPrevDiffTime);
-    propTerm = propGain * QRDError;
-    deltaTime = (timeCurr - timePrev) / 1000.0;
+  // calculate the derivation & propotional gains
+  derivTerm = (QRDError - QRDErrorPrevDiff) / (timeCurr - QRDErrorPrevDiffTime);
+  propTerm = propGain * QRDError;
+  deltaTime = (timeCurr - timePrev) / 1000.0;
 
-    newSpeedLeft = defaultSpeed - propTerm - derivTerm;
-    newSpeedRight = defaultSpeed + propTerm + derivTerm;
+  newSpeedLeft = defaultSpeed - propTerm - derivTerm;
+  newSpeedRight = defaultSpeed + propTerm + derivTerm;
 
+  QRDErrorPrev = QRDError;
+  timePrev = timeCurr;
 
-
-    
-
-    QRDErrorPrev = QRDError;
-    timePrev = timeCurr;
-
-     // do not exceed the maximum speeds for the motor
-    if (newSpeedLeft > 255) {
-      newSpeedLeft = 255;
-    }
-    else if (newSpeedLeft < -255) {
-      newSpeedLeft = -255;
-    }
-
-    if (newSpeedRight > 255) {
-      newSpeedRight = 255;
-    }
-    else if (newSpeedRight < -255) {
-      newSpeedRight = -255;
-    }
-// assign speeds to the motor
-//if(detectedIntersection)
-//for(int i = 0; i < 25; i++){
-  //  motor.speed(motorLeft, newSpeedLeft);
-  //  motor.speed(motorRight, newSpeedRight);
-//}
-//else{
-     motor.speed(motorLeft, newSpeedLeft);
-    motor.speed(motorRight, newSpeedRight);
-//  }
-
+  // do not exceed the maximum speeds for the motor
+  if (newSpeedLeft > 255) {
+    newSpeedLeft = 255;
+  }
+  else if (newSpeedLeft < -255) {
+    newSpeedLeft = -255;
   }
 
+  if (newSpeedRight > 255) {
+    newSpeedRight = 255;
+  }
+  else if (newSpeedRight < -255) {
+    newSpeedRight = -255;
+  }
+
+  motor.speed(motorLeft, newSpeedLeft);
+  motor.speed(motorRight, newSpeedRight);
+
+
   // if the robot is on the tape, check for intersections
-
-  
-  else {
-    QRDIntersectionLeft = digitalRead(QRDIntersectionPinLeft);
-    QRDIntersectionRight = digitalRead(QRDIntersectionPinRight);
-
+  if (QRDError == 0) {
     if (lastDir == LEFT && QRDIntersectionRight) {
-      //if(dectectedIntersection == true){
-      LCD.setCursor(0, 1);
-      LCD.print("Intersection: Right");
-      //newSpeedLeft = newSpeedLeft - 0;
-      //newSpeedRight = newSpeedRight + 75;
+      LCD.setCursor(3, 1);
+      LCD.print("Turn Right ");
       motor.speed(motorLeft, 150);
       motor.speed(motorRight, 0);
       lastDir = RIGHT;
-      //detectedIntersection = true;
       delay(500);
       QRDError = 5;
     }
-    // else{
-    //detectedIntersection = true;
-    // }
-
-    // }
 
     else if (lastDir == RIGHT && QRDIntersectionLeft) {
-      //if(dectectedIntersection == true){
-      LCD.setCursor(0, 1);
-      LCD.print("Intersection: Left");
-      //newSpeedLeft = newSpeedLeft + 75;
-      //newSpeedRight = newSpeedRight - 0;
+      LCD.setCursor(3, 1);
+      LCD.print("Turn Left ");
       motor.speed(motorRight, 150);
       motor.speed(motorLeft, 0);
       lastDir = LEFT;
       delay(500);
       QRDError = 5;
-      //detectedIntersection = true;
-      // }
-      //  else {
-      //  detectedIntersection = true;
-      // }
     }
   }
 
-     
-    
   // this determines when the print the output data to the serial port.
   LCD.clear();
   LCD.print("DG: ");
@@ -217,6 +181,16 @@ void loop() {
   LCD.print(" ");
   LCD.print("PG: ");
   LCD.print(propGain);
+
+  if (QRDIntersectionLeft) {
+    LCD.setCursor(0, 1);
+    LCD.print("L");
+  }
+
+  if (QRDIntersectionRight) {
+    LCD.setCursor(1, 1);
+    LCD.print("R");
+  }
 
   if (count % numLoops == 0) {
     Serial.println("Multiplexing Direction: ");
@@ -231,6 +205,10 @@ void loop() {
     Serial.println(newSpeedRight);
     Serial.println("Speed Left Motor: ");
     Serial.println(newSpeedLeft);
+    Serial.println("Prop Term");
+    Serial.println(propTerm);
+    Serial.println("Deriv Term");
+    Serial.println(derivTerm);
 
     count = 0;
   }
