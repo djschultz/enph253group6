@@ -2,22 +2,22 @@
 #include <LiquidCrystal.h>
 
 // TINAH INPUTS
-int motorLeft = 3;
-int motorRight = 0;
+int motorLeft = 0;
+int motorRight = 3;
 
-const int QRDIntersectionPinLeft = 5;
-const int QRDIntersectionPinRight = 1;
+const int QRDIntersectionPinLeft = 1;
+const int QRDIntersectionPinRight = 5;
 const int QRDIntersectionPinMiddle = 3;
 
-const int QRDTapePinLeft = 4;
-const int QRDTapePinRight = 2;
+const int QRDTapePinLeft = 2;
+const int QRDTapePinRight = 4;
 
 const int multiplexSwitchPin = 8;
 
 // CLARIFYING CONSTANTS
 int defaultSpeed = 75;
 int count = 0;
-int numLoops = 500;
+int numLoops = 100;
 bool LEFT = 1;
 bool RIGHT = 0;
 
@@ -63,10 +63,17 @@ void setup() {
 }
 
 void loop() {
-  //change direction if startbutton is pressed
-  if (startbutton()) {
-    multiplexDir = !multiplexDir;
-    digitalWrite(multiplexSwitchPin, multiplexDir);
+  LCD.setCursor(5, 1);
+
+  if (lastDir) {
+    LCD.print("LEFT");
+  }
+  else {
+    LCD.print("RIGHT");
+  }
+
+  if (stopbutton()) {
+    lastDir = !lastDir;
   }
 
   //START PID
@@ -79,6 +86,26 @@ void loop() {
   QRDTapeLeft = digitalRead(QRDTapePinLeft);
   QRDIntersectionLeft = digitalRead(QRDIntersectionPinLeft);
   QRDIntersectionRight = digitalRead(QRDIntersectionPinRight);
+
+  if (QRDIntersectionLeft) {
+    LCD.setCursor(0, 1);
+    LCD.print("L");
+  }
+
+  if (QRDTapeLeft) {
+    LCD.setCursor(1, 1);
+    LCD.print("Y");
+  }
+
+  if (QRDTapeRight) {
+    LCD.setCursor(2, 1);
+    LCD.print("Y");
+  }
+
+  if (QRDIntersectionRight) {
+    LCD.setCursor(3, 1);
+    LCD.print("R");
+  }
 
   if (QRDError != QRDErrorPrevDiff) {
     QRDErrorPrevDiff = QRDError;
@@ -147,32 +174,39 @@ void loop() {
     newSpeedRight = -255;
   }
 
+  // if the robot is on the tape, check for intersections
+  // if left
+  if (abs(QRDError) < 2  && QRDIntersectionLeft && lastDir == LEFT) {
+    newSpeedLeft = -100;//defaultSpeed - propTerm - derivTerm; use -100
+    newSpeedRight = 130;//defaultSpeed + propTerm + derivTerm; use 130
+
+    motor.speed(motorLeft, newSpeedLeft);
+    motor.speed(motorRight, newSpeedRight);
+    delay(150);
+
+    while (!(digitalRead(QRDTapePinLeft) && digitalRead(QRDTapePinRight))) {
+    }
+
+    QRDError = 1;
+  }
+
+  //if right
+  if (abs(QRDError) < 2  && QRDIntersectionRight && lastDir == RIGHT) {
+    newSpeedRight = -110;//defaultSpeed - propTerm - derivTerm; use -100
+    newSpeedLeft = 130;//defaultSpeed + propTerm + derivTerm; use 130
+
+    motor.speed(motorLeft, newSpeedLeft);
+    motor.speed(motorRight, newSpeedRight);
+    delay(200);
+
+    while (!(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft))) {
+    }
+
+    QRDError = -1;
+  }
+
   motor.speed(motorLeft, newSpeedLeft);
   motor.speed(motorRight, newSpeedRight);
-
-
-  // if the robot is on the tape, check for intersections
-  if (QRDError == 0) {
-    if (lastDir == LEFT && QRDIntersectionRight) {
-      LCD.setCursor(3, 1);
-      LCD.print("Turn Right ");
-      motor.speed(motorLeft, 150);
-      motor.speed(motorRight, 0);
-      lastDir = RIGHT;
-      delay(500);
-      QRDError = 5;
-    }
-
-    else if (lastDir == RIGHT && QRDIntersectionLeft) {
-      LCD.setCursor(3, 1);
-      LCD.print("Turn Left ");
-      motor.speed(motorRight, 150);
-      motor.speed(motorLeft, 0);
-      lastDir = LEFT;
-      delay(500);
-      QRDError = 5;
-    }
-  }
 
   // this determines when the print the output data to the serial port.
   LCD.clear();
@@ -181,16 +215,6 @@ void loop() {
   LCD.print(" ");
   LCD.print("PG: ");
   LCD.print(propGain);
-
-  if (QRDIntersectionLeft) {
-    LCD.setCursor(0, 1);
-    LCD.print("L");
-  }
-
-  if (QRDIntersectionRight) {
-    LCD.setCursor(1, 1);
-    LCD.print("R");
-  }
 
   if (count % numLoops == 0) {
     Serial.println("Multiplexing Direction: ");
