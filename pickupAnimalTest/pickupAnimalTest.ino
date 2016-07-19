@@ -128,13 +128,12 @@ Serial.println(raiseAnglePhi);
   
 }
 
-int jointToServoPhi(int angle){
-  int result = 2*(90 - angle);
-  return result;
-}
-
 int jointToServoTheta(int angle){
   int result = 2*(angle - 120);
   return result;
 }
 
+int jointToServoPhi(int angle){
+  int result = 2*(90 - angle);
+  return result;
+}
