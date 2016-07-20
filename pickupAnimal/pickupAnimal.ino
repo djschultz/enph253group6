@@ -13,18 +13,11 @@
 //Initialize the QSD pin and the threshold of QSD signal for the animal to be beside the animal.
 const int QSDPin = 0;
 const int QSDThreshold = 700;
-
-//Increment in degrees for the servo motors to step by as they move over a larger arc.
-const int increment = 2;
-//Value in milliseconds between incrementing the servo so that it moves smoothly, and the value in milliseconds
-//between doing the different teps in the pickup of animal procedure.
-const int servoDelay = 25;
-const int stepDelay = 2000;
-int count = 0;
-
+  
 void setup() {
 #include <phys253setup.txt>
   Serial.begin(9600);
+  pinMode(10, OUTPUT);
 }
 
 void loop() {
@@ -52,19 +45,23 @@ void pickupAnimal(bool dir) {
   // and joint angles of thetaJoint = 131, and phiJoint = 90
   //Extended angles correspond to position of x = 6.5 in. to x = 9.5 in., and y = 0.5 in.
   //Raise angles correspond to position of x = 6.5 in. to x = 9.5 in., and y = 6 in.,
-  const int clawQRDPin = 9;
-  const int clawQRDThreshold = 990;
+  const int clawQRDPin = 5;
+  const int clawQRDThreshold = 200;
 
   const int numStopsClaw = 7;
   const int homeAngleThetaJoint = 131;
   const int homeAnglePhiJoint = 90;
+  const int retractAngleThetaJoint = 210;
+  const int retractAnglePhiJoint = 121;
   const int extendAngleThetaJoint[numStopsClaw] = {132, 133, 135, 137, 139, 141, 144};
   const int extendAnglePhiJoint[numStopsClaw] = {60, 57, 53, 50, 46, 43, 39};
-  const int raiseAngleThetaJoint[numStopsClaw] = {180, 179, 180, 180, 180, 181, 181};
-  const int raiseAnglePhiJoint[numStopsClaw] = {83, 79, 73, 68, 64, 57, 49};
+  const int raiseAngleThetaJoint[numStopsClaw] = {196, 195, 195, 195, 193, 193, 193};
+  const int raiseAnglePhiJoint[numStopsClaw] = {79, 74, 68, 61, 51, 51, 51};
 
   const int homeAngleTheta = jointToServoTheta(homeAngleThetaJoint);
   const int homeAnglePhi = jointToServoPhi(homeAnglePhiJoint);
+  const int retractAngleTheta = jointToServoTheta(retractAngleThetaJoint);
+  const int retractAnglePhi = jointToServoPhi(retractAnglePhiJoint);
   int extendAngleTheta[numStopsClaw];
   int extendAnglePhi[numStopsClaw];
   int raiseAngleTheta[numStopsClaw];
@@ -79,8 +76,6 @@ void pickupAnimal(bool dir) {
     raiseAnglePhi[K] = jointToServoPhi(raiseAnglePhiJoint[K]);
   }
 
-
-
   //Increment in degrees for the servo motors to step by as they move over a larger arc.
   const int increment = 2;
   //Value in milliseconds between incrementing the servo so that it moves smoothly, and the value in milliseconds
@@ -90,18 +85,20 @@ void pickupAnimal(bool dir) {
   const int arduinoOutputPin = 10;
 
   //STEP 1: Set the servo motors to the home position (claw near base of the arm)
+  LCD.print("Moving to home");
   RCServo0.write(homeAngleTheta);
   RCServo1.write(homeAnglePhi);
   RCServo2.write(90);
-  LCD.print("Moving to home");
   delay(stepDelay);
   LCD.clear();
 
   //STEP 2: Rotate the arm until it faces in the direction of the passenger.
   LCD.print("Rotating Arm");
   if (dir) {
+    //Turn arm to the right
     RCServo2.write(179);
   } else {
+    //Turn arm to the left
     RCServo2.write(0);
   }
   delay(stepDelay);
@@ -118,17 +115,22 @@ void pickupAnimal(bool dir) {
   //STEP 4: Extend the claw towards the animal's torso.
   LCD.print("moving to pickup position");
   double QRDVal = analogRead(clawQRDPin);
+  Serial.println("QRDVal");
+  Serial.println(QRDVal);
   moveServoTheta(homeAngleTheta, extendAngleTheta[0], increment, servoDelay);
   moveServoPhi(homeAnglePhi, extendAnglePhi[0], increment, servoDelay);
   int count;
   for (count = 0; count < numStopsClaw - 1; count++) {
     moveServoTheta(extendAngleTheta[count], extendAngleTheta[count + 1], increment, servoDelay);
     moveServoPhi(extendAnglePhi[count], extendAnglePhi[count + 1], increment, servoDelay);
-    if (QRDVal > clawQRDThreshold) {
+    LCD.print(count);
+    Serial.println("QRDVal");
+    Serial.println(QRDVal);
+    delay(1000);
+    if (QRDVal < clawQRDThreshold) {
       break;
     } else {
-      //QRDVal = analogRead(clawQRDPin);
-      QRDVal = knob(clawQRDPin);
+      QRDVal = analogRead(clawQRDPin);
     }
   }
   delay(stepDelay);
@@ -139,7 +141,7 @@ void pickupAnimal(bool dir) {
   //This is why there is a longer delay, to allow the arduino to close the claw.
   LCD.print("Closing claw");
   digitalWrite(arduinoOutputPin, LOW);
-  delay(2 * stepDelay);
+  delay(2*stepDelay);
   LCD.clear();
 
   //STEP 6: Raise the claw, with animal in hand.
@@ -149,10 +151,17 @@ void pickupAnimal(bool dir) {
   delay(stepDelay);
   LCD.clear();
 
+  //STEP 7: Retract claw at high height.
+  LCD.print("Retracting claw");
+  moveServoPhi(raiseAnglePhi[count],retractAnglePhi, increment, servoDelay);
+  moveServoTheta(raiseAngleTheta[count], retractAngleTheta, increment, servoDelay);
+  delay(stepDelay);
+  LCD.clear(); 
+  
   //STEP 7: Move the claw back to home.
   LCD.print("moving back to home");
-  moveServoTheta(raiseAngleTheta[count], homeAngleTheta, increment, servoDelay);
-  moveServoPhi(raiseAnglePhi[count], homeAnglePhi, increment, servoDelay);
+  moveServoPhi(retractAnglePhi, homeAnglePhi, increment, servoDelay);
+  moveServoTheta(retractAngleTheta, homeAngleTheta, increment, servoDelay);
   delay(stepDelay);
   LCD.clear();
 
@@ -161,85 +170,6 @@ void pickupAnimal(bool dir) {
   LCD.print("cycle complete!");
   delay(stepDelay);
   LCD.clear();
-}
-
-//This function will pick up an animal in a certain direction, where dir = 0 is left and dir = 1 is right.
-void dropoffAnimal(int clawQRDPin, bool dir) {
-
-  //Initialize the angles of the theta and phi joints. These can be obtained from the MATLAB code.
-  //Home Angles correspond to position of x = 2.5 in., y = 0.5 in.,
-  // and joint angles of thetaJoint = 131, and phiJoint = 90
-  //Home Angles correspond to position of x = 2.5 in., y = 0.5 in.,
-  // and joint angles of thetaJoint = 131, and phiJoint = 90
-  //Extended angles correspond to position of x = 6.5 in. to x = 9.5 in., and y = 0.5 in.
-  //Raise angles correspond to position of x = 6.5 in. to x = 9.5 in., and y = 6 in.,
-  const int homeAngleThetaJoint = 131;
-  const int homeAnglePhiJoint = 90;
-  const int extendAngleThetaJoint = 135;
-  const int extendAnglePhiJoint = 50;
-  const int raiseAngleThetaJoint = 180;
-  const int raiseAnglePhiJoint = 73;
-  const int homeAngleTheta = jointToServoTheta(homeAngleThetaJoint);
-  const int homeAnglePhi = jointToServoPhi(homeAnglePhiJoint);
-  int extendAngleTheta = jointToServoTheta(extendAngleThetaJoint);
-  int extendAnglePhi = jointToServoPhi(extendAnglePhiJoint);
-  int raiseAngleTheta = jointToServoTheta(raiseAngleThetaJoint);
-  int raiseAnglePhi = jointToServoPhi(raiseAnglePhiJoint);
-
-  //Increment in degrees for the servo motors to step by as they move over a larger arc.
-  const int increment = 2;
-  //Value in milliseconds between incrementing the servo so that it moves smoothly, and the value in milliseconds
-  //between doing the different steps in the pickup of animal procedure.
-  const int servoDelay = 25;
-  const int stepDelay = 2000;
-  const int arduinoOutputPin = 10;
-
-  //STEP 1: Set the servo motors to the home position (claw near base of the arm)
-  RCServo0.write(homeAngleTheta);
-  RCServo1.write(homeAnglePhi);
-  RCServo2.write(90);
-  LCD.print("Moving to home");
-  delay(stepDelay);
-
-  //STEP 2: Rotate the arm until it faces in the direction of the drop off
-  LCD.print("Rotating Arm");
-  if (dir) {
-    RCServo2.write(179);
-  } else {
-    RCServo2.write(0);
-  }
-  delay(stepDelay);
-
-  //STEP 3: Ensure the claw is closed around the animal before the arm extends.
-  //This sends a signal to the arduino uno, which will open the claw.
-  //This is why there is a longer delay, to allow the arduino to open the claw.
-  LCD.print("Closing");
-  digitalWrite(arduinoOutputPin, LOW);
-  delay(2 * stepDelay);
-
-  //STEP 4: Extend the claw to release the animal
-  LCD.print("moving to pickup position");
-  moveServoTheta(homeAngleTheta, extendAngleTheta, increment, servoDelay);
-  moveServoPhi(homeAnglePhi, extendAnglePhi, increment, servoDelay);
-  delay(stepDelay);
-
-  //STEP 5: Release the animal.
-  //This sends a signal to the arduino uno, which will close the claw.
-  //This is why there is a longer delay, to allow the arduino to close the claw.
-  LCD.print("Opening");
-  digitalWrite(arduinoOutputPin, HIGH);
-  delay(2 * stepDelay);
-
-  //STEP 6: Move the claw back to home.
-  LCD.print("moving back to home");
-  moveServoTheta(extendAngleTheta, homeAngleTheta, increment, servoDelay);
-  moveServoPhi(extendAnglePhi, homeAnglePhi, increment, servoDelay);
-  delay(stepDelay);
-
-  //STEP 7: Rotate the animal back to the middle.
-  RCServo2.write(90);
-  LCD.print("cycle complete!");
-  delay(stepDelay);
 }
 
 int jointToServoTheta(int angle) {
@@ -279,4 +209,5 @@ void moveServoPhi(int initAngle, int finalAngle, int increment, int servoDelay) 
     }
   }
 }
+
 
