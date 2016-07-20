@@ -40,9 +40,9 @@ void loop() {
   }
 
   
-  RCServo2.write(servoTheta);
+  RCServo0.write(servoTheta);
   RCServo1.write(servoPhi);
-  //RCServo2.write(90);
+  RCServo2.write(90);
   count++; 
 }
 int jointToServoTheta(int angle) {

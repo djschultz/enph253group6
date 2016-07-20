@@ -15,6 +15,6 @@ void loop() {
   if(digitalRead(inputPin)){
     clawServo.write(60);
   } else{
-    clawServo.write(120);
+    clawServo.write(117);
   }
 }
