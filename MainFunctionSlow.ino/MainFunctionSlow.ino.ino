@@ -1,3 +1,4 @@
+@@ -0,0 +1,1122 @@
 #include <phys253.h>
 #include <LiquidCrystal.h>
 #include <StandardCplusplus.h>
@@ -16,11 +17,11 @@ template<class T> inline Print &operator <<(Print &obj, T arg) {
   return obj;
 }
 
-// ------ MAP ------ //
+// ------ MAP ------ // 
 //Matrix for storing possible directions from each node
 int directionMatrix[20][20] = {};
-//Matrix for storing the accessible nodes from each node
-int availableNodes[20][4] = { { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 } };
+//Matrix for storing the accessible nodes from each node 
+int availableNodes[20][4] = { { 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 },{ 50, 50, 50, 50 } };
 //Default path when we start at 0th node
 int zeroPath[34] = { 0, 1, 6,  5,  3,  5,  4,  5,  6,   8, 10, 9, 10, 11, 14, 13, 12, 13, 16, 13, 14, 18, 17, 18, 19, 15, 14, 11,  8,  6, 7, 2,  1, 0 };
 //Default path when we start at 17th node
@@ -40,19 +41,19 @@ bool startAtZero = true; //set which node we're starting at
 int endingNode = 15; //for testing the map
 
 
-// ------- MOTOR INPUTS ------- //
+           // ------- MOTOR INPUTS ------- //
 #define motorLeft 3
 #define motorRight 0
 
-//Speeds
+           //Speeds
 #define FORWARD_SPEED 90
-#define DRIVING_TURN_SPEED 85
-#define BACKING_TURN_SPEED -85
+#define DRIVING_TURN_SPEED 120
+#define BACKING_TURN_SPEED -120
 #define ROTATE_TURN_SPEED 50
 
 
-// -------- TINAH INPUTS ---------- //
-//QRD SENSORS
+           // -------- TINAH INPUTS ---------- //
+           //QRD SENSORS
 const int QRDTapePinLeft = 0;
 const int QRDTapePinRight = 2;
 
@@ -77,7 +78,7 @@ int intersectionCount = 0; //for checking that we are at an intersection (read Q
 int intersectionClearance = 0; //for delaying intersection detection between intersections
 const int intersectionClearanceThreshold = 500;
 
-//IR SENSORS
+              //IR SENSORS
 const int QSDPinLeft = 2;
 const int QSDPinRight = 0;
 const int QSDPinFront = 1;
@@ -97,13 +98,13 @@ const int frontIRThreshold = 300;
 const int beaconIRThreshold = 100;
 
 // CLARIFYING CONSTANTS
-int defaultSpeed = 125;
+int defaultSpeed = 90;
 int count = 0;
 int numLoops = 100;
 bool LEFT = 1;
 bool RIGHT = 0;
 
-// ------- PID -------- //
+// ------- PID -------- // 
 // PID INITIALIZATION
 int prevNumLoops = 0;
 int currNumLoops = 1;
@@ -272,21 +273,21 @@ void loop() {
 
   //tape follow normally
   //START PID
-  propGain = 12;//knob(6); //14;//knob(6);
-  derivGain = 68;//knob(7); //118;//knob(7);
+  propGain = 15; //knob(6);
+  derivGain = 65; //knob(7);
 
-  // QRDs are true when there is tape below them
+          // QRDs are true when there is tape below them
   QRDTapeRight = digitalRead(QRDTapePinRight);
   QRDTapeLeft = digitalRead(QRDTapePinLeft);
   QRDIntersectionLeft = digitalRead(QRDIntersectionPinLeft);
   QRDIntersectionRight = digitalRead(QRDIntersectionPinRight);
 
-  QSDLeft = 0;// analogRead(QSDPinLeft);
+  QSDLeft = 0;//nalogRead(QSDPinLeft);
   QSDRight = 0;//analogRead(QSDPinRight);
   QSDFront = 0;//analogRead(QSDPinFront);
   QSDBeacon = 0;//analogRead(QSDPinBeacon);
 
-  //for debugging purposes
+          //for debugging purposes
   if (QRDIntersectionLeft) {
     LCD.setCursor(0, 1);
     LCD.print("L");
@@ -408,16 +409,16 @@ void loop() {
   }
 
   //if intersection QRDs pick up signal, we are at a node and calculate direction we want
-  else if ((QRDIntersectionRight || QRDIntersectionLeft) && intersectionClearance > 30) {
+  else if ((QRDIntersectionRight || QRDIntersectionLeft) && intersectionClearance > 50) {
     intersectionClearance = 0;
     intersectionCount = 0;
     while (QRDIntersectionRight || QRDIntersectionLeft) {
       intersectionCount++;
-      if (intersectionCount > 5) {
+      if (intersectionCount > 10) {
         break;  //detect the intersection at least 10 times, to make sure it wasn't a QRD mistake
       }
     }
-    if (intersectionCount > 5) {
+    if (intersectionCount > 10) {
       //  stopMotors();
       //  delay(1000);
       if (!havePassenger) {
@@ -464,13 +465,13 @@ void loop() {
       }
       else {
         //we are trying to head to an "ending node" (either 7 or 15) for dropoff since we have a passenger
-        //calculate ideal node to turn to
-        if (currentNode == 8) {
-          endingNode == 15;
+        //calculate ideal node to turn to 
+        if(currentNode == 8){
+          endingNode == 15;  
         }
         int idealNode = availableNodes[currentNode][0];
-        if (abs(currentDirection - directionMatrix[currentNode][idealNode]) == 2) {
-          idealNode = availableNodes[currentNode][1];
+        if(abs(currentDirection - directionMatrix[currentNode][idealNode]) == 2) {
+          idealNode = availableNodes[currentNode][1];  
         }
         int idealDiff = endingNode - idealNode;
 
@@ -479,7 +480,7 @@ void loop() {
           int currAvailNode = availableNodes[currentNode][index];
           if (currAvailNode == 50)
             continue;
-
+          
           int currDiff = endingNode - currAvailNode;
           if ((abs(currDiff) < abs(idealDiff)) && abs(currentDirection - directionMatrix[currentNode][currAvailNode]) != 2) {
             idealNode = currAvailNode;
@@ -527,47 +528,46 @@ void loop() {
   }
 
   //handle collision
-  /*
   while (digitalRead(pin0) || digitalRead(pin1) || digitalRead(pin2) || digitalRead(pin3)) {
     turnForward();
   }
   while (digitalRead(pin4) || digitalRead(pin5) || digitalRead(pin6) || digitalRead(pin7)) {
     //TODO: weird midpoint clearance collision case
 
-    /*  if (intersectionClearance < intersectionClearanceThreshold) {
-        currentNode = turnTowardsQSDSignal2(currentDirection, prevNode);
+    if (intersectionClearance < intersectionClearanceThreshold) {
+      currentNode = turnTowardsQSDSignal2(currentDirection, prevNode);
+      
+      moveInDirection2(currentDirection, directionMatrix[prevNode][currentNode]);
+      currentDirection = directionMatrix[prevNode][currentNode];
 
-        moveInDirection2(currentDirection, directionMatrix[prevNode][currentNode]);
-        currentDirection = directionMatrix[prevNode][currentNode];
-
-
-      }
-    //  else if {
-    reverseDirection();
-    turnAround();
-    int tempNode = prevNode;
-    prevNode = currentNode;
-    currentNode = tempNode;
-    //  }
+     
+   }
+ //  else if {
+      reverseDirection();
+      turnAround();
+      int tempNode = prevNode;
+      prevNode = currentNode;
+      currentNode = tempNode;  
+  //  }
     if (prevNode == 8 && currentNode == 10) {
-      currentDirection = EAST;
-    }
-    else if (prevNode == 8 && currentNode == 11) {
-      currentDirection = NORTH;
-    }
-    else if (prevNode == 10 && currentNode == 11) {
-      currentDirection = SOUTH;
-    }
-    else if (prevNode == 10 && currentNode == 8) {
-      currentDirection = SOUTH;
-    }
-    else if (prevNode == 11 && currentNode == 10) {
-      currentDirection = WEST;
-    }
-    else if (prevNode == 11 && currentNode == 8) {
-      currentDirection = NORTH;
-    }
-
+          currentDirection = EAST;
+        }
+        else if (prevNode == 8 && currentNode == 11) {
+          currentDirection = NORTH;
+        }
+        else if (prevNode == 10 && currentNode == 11) {
+          currentDirection = SOUTH;
+        }
+        else if (prevNode == 10 && currentNode == 8) {
+          currentDirection = SOUTH;
+        }
+        else if (prevNode == 11 && currentNode == 10) {
+          currentDirection = WEST;
+        }
+        else if (prevNode == 11 && currentNode == 8) {
+          currentDirection = NORTH;
+        }
+    
 
     //debugging
     LCD.clear();
@@ -582,7 +582,7 @@ void loop() {
     LCD.print(directionMatrix[prevNode][currentNode]);
     //  delay(5000);
   }
-*/
+
   //check IR if we dont have passenger
   if (!havePassenger && (QSDLeft > 30 || QSDRight > 30) || QSDFront > 30) {
     LCD.print("QSD");
@@ -594,15 +594,15 @@ void loop() {
     newSpeedLeft = newSpeedLeft / 2;
     newSpeedRight = newSpeedRight / 2;
 
-    /* Test loop count for cul de sacs
-        if(currentNode == 3 || currentNode == 16) {
-          int count = 0;
-          while(count < 1000){
-            count++;
-          }
-          pickupAnimal(RIGHT, true);
-        } */
-
+/* Test loop count for cul de sacs
+    if(currentNode == 3 || currentNode == 16) {
+      int count = 0;
+      while(count < 1000){
+        count++;
+      }
+      pickupAnimal(RIGHT, true);
+    } */
+    
     //Serial.println("LEFT QSD");
     //Serial.println(QSDLeft);
     //Serial.println("RIGHT QSD");
@@ -615,15 +615,12 @@ void loop() {
       while (analogRead(QSDPinLeft) > passengerIRThreshold) {
         pickupAnimal(LEFT, false);
       }
-      if (analogRead(5) < 200) {
-        havePassenger = true;
-        if (abs(currentNode - 7) <= abs(currentNode - 15))
-          endingNode = 7;
-        else {
-          endingNode = 15;
-        }
+      havePassenger = true;
+      if (abs(currentNode - 7) <= abs(currentNode - 15))
+        endingNode = 7;
+      else {
+        endingNode = 15;
       }
-
     }
     else if (QSDRight > passengerIRThreshold) {
       stopMotors();
@@ -631,32 +628,26 @@ void loop() {
       while (analogRead(QSDPinRight) > passengerIRThreshold) {
         pickupAnimal(RIGHT, false); //try again
       }
-      if (analogRead(5) < 200) {
-        havePassenger = true;
-
-        if (abs(currentNode - 7) <= abs(currentNode - 15))
-          endingNode = 7;
-        else {
-          endingNode = 15;
-        }
+      havePassenger = true;
+      if (abs(currentNode - 7) <= abs(currentNode - 15))
+        endingNode = 7;
+      else {
+        endingNode = 15;
       }
     }
-    else if (QSDFront > frontIRThreshold) {
+    else if (QSDFront > frontIRThreshold){
       stopMotors();
       pickupAnimal(RIGHT, true);
       while (analogRead(QSDPinFront) > passengerIRThreshold) {
         pickupAnimal(RIGHT, true); //try again
       }
-      if (analogRead(5) < 200) {
-        havePassenger = true;
-
-        if (abs(currentNode - 7) <= abs(currentNode - 15))
-          endingNode = 7;
-        else {
-          endingNode = 15;
-        }
+      havePassenger = true;
+      if (abs(currentNode - 7) < abs(currentNode - 15))
+        endingNode = 7;
+      else {
+        endingNode = 15;
       }
-    }
+    }    
   }
   else if (havePassenger) {
     //move across edge between 7th and 15th node
@@ -669,8 +660,8 @@ void loop() {
   //Serial.print("QSD Beacon value: ");
   //Serial.print(QSDBeacon);
   if (havePassenger && ((currentNode == 15 && prevNode == 7) || (currentNode == 7 && prevNode == 15))) {
-    //  numLoops++;
-    //  stopMotors();
+  //  numLoops++;
+  //  stopMotors();
     // dropoffAnimal(LEFT);
     // havePassenger = false;
     if (currentNode == 15 && prevNode == 7 && QSDBeacon > 170) {
@@ -696,11 +687,11 @@ void loop() {
   motor.speed(motorRight, newSpeedRight);
 
   // this determines when the print the output data to the serial port.
-  /* LCD.clear();
-    LCD.print("PG ");
-    LCD.print(propGain);
-    LCD.print("DG ");
-    LCD.print(derivGain);*/
+  /*  LCD.clear();
+  LCD.print("PG ");
+  LCD.print(propGain);
+  LCD.print("DG ");
+  LCD.print(derivGain);*/
   LCD.clear();
   LCD.print("CN ");
   LCD.print(currentNode);
@@ -715,32 +706,32 @@ void turnLeft() {
   //move forward a little first
   motor.speed(motorLeft, FORWARD_SPEED);
   motor.speed(motorRight, FORWARD_SPEED);
-  delay(65);
+  delay(170);
   //turn 90 degrees to the left
   motor.speed(motorRight, DRIVING_TURN_SPEED);
   motor.speed(motorLeft, BACKING_TURN_SPEED);
-  delay(185);
+  delay(200);
   while (!(digitalRead(QRDTapePinLeft) && digitalRead(QRDTapePinRight))) {
     delay(1);
   }
 
-  QRDError = 3;
+  QRDError = 2;
 }
 
 void turnRight() {
   //move forward a little first
   motor.speed(motorRight, FORWARD_SPEED);
   motor.speed(motorLeft, FORWARD_SPEED);
-  delay(65);
+  delay(170);
   //turn 90 degrees to the right
   motor.speed(motorLeft, DRIVING_TURN_SPEED);
   motor.speed(motorRight, BACKING_TURN_SPEED);
-  delay(185);
+  delay(200);
 
   while (!(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft))) {
     delay(1);
   }
-  QRDError = -3;
+  QRDError = -2;
 }
 
 void turnForward() {
@@ -758,7 +749,7 @@ void turnAround() {
 }
 
 void turn90(bool dir) {
-  if (dir) { //turn left
+  if (dir) { //turn left 
     motor.speed(motorRight, ROTATE_TURN_SPEED);
     motor.speed(motorLeft, (-1)*ROTATE_TURN_SPEED);
   }
@@ -805,12 +796,12 @@ void moveInDirection(int currentDirection, int directionOfNode) {
   }
   else if (difference == -1 || difference == 3) {
     turnRight();
-    QRDError = -5;
+    QRDError = -2;
 
   }
   else if (difference == 1 || difference == -3) {
     turnLeft();
-    QRDError = 5;
+    QRDError = 2;
   }
 }
 
@@ -839,7 +830,7 @@ void moveInDirection2(int currentDirection, int directionOfNode) {
     delay(200);
     while (!(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft))) {
       delay(1);
-    }
+    } 
     QRDError = 2;
   }
 }
@@ -938,8 +929,8 @@ int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDi
 
   maxSignal = maxSignal - minSignal; //account for noise offset, if any
 
-  //No signals found, go on predetermined path
-  //  delay(10000);
+                     //No signals found, go on predetermined path
+                     //  delay(10000);
   int idealNode = -1;
   if (maxSignal < 15) {
     if (startAtZero) {
@@ -963,15 +954,15 @@ int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDi
       }
     }
     if (idealNode == -1) { //not on mapped path
-      // Serial.println("Trying to go to leftmost Node");
+                 // Serial.println("Trying to go to leftmost Node");
       if (currentNode == 15 && prevNode == 7) { //just finished a dropoff, exit the dropoff zone and go back to mapped route11
         idealNode = 14;
       }
       else if (currentNode == 7 && prevNode == 15) {
         idealNode = 6;
       }
-      else if (goLeft) {
-        if (ableToTurn[0] != -1) {
+      else if(goLeft){
+         if (ableToTurn[0] != -1) {
           idealNode = ableToTurn[0];
         }
         else if (ableToTurn[1] != -1) {
@@ -982,7 +973,7 @@ int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDi
         }
         goLeft = !goLeft;
       }
-      else {
+      else{
         if (ableToTurn[2] != -1) {
           idealNode = ableToTurn[2];
         }
@@ -992,7 +983,7 @@ int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDi
         else if (ableToTurn[0] != -1) {
           idealNode = ableToTurn[0];
         }
-        goLeft = !goLeft;
+        goLeft = !goLeft; 
       }
     }
   }
@@ -1043,7 +1034,7 @@ void pickupAnimal(bool dir, bool front) {
   //Rotate arm to correct side
   LCD.clear();
   LCD.print("Turning ");
-  if (!front) {
+  if(!front){
     turn90(dir);
   }
   delay(stepDelay);
@@ -1092,8 +1083,8 @@ void pickupAnimal(bool dir, bool front) {
   //Rotate back to new home (right side of robot)
   LCD.clear();
   LCD.print("Going home");
-  if (!front) {
-    turnBack90(dir);
+  if(!front){
+  turnBack90(dir);
   }
 }
 void dropoffAnimal(bool dir) {
