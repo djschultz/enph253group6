@@ -23,9 +23,9 @@ int directionMatrix[20][20] = {};
 //Matrix for storing the accessible nodes from each node
 int availableNodes[20][4] = { { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 }, { 50, 50, 50, 50 } };
 //Default path when we start at 0th node
-int zeroPath[34] = { 0, 1, 6,  5,  3,  5,  4,  5,  6,   8, 10, 9, 10, 11, 14, 13, 12, 13, 16, 13, 14, 18, 17, 18, 19, 15, 14, 11,  8,  6, 7, 2,  1, 0 };
+int zeroPath[27] = { 0, 1, 2,  7,  6,  5,  4,  5,  6, 8, 10, 9, 10, 11, 14, 13, 12, 13, 14, 15, 19, 18, 14, 11, 8, 6, 1};
 //Default path when we start at 17th node
-int seventeenPath[34] = { 17, 18, 14, 13, 16, 13, 12, 13, 14, 11, 10, 9, 10, 8,  6,   5,  4,  5,  3,  5,  6,  1,  0,  1,  2,  7,  6,  8, 11, 14, 15, 19, 18, 17 };
+int seventeenPath[27] = { 17, 18, 19, 15, 14, 13, 12, 13, 14, 11, 10, 9, 10, 8, 6, 5, 4, 5, 6, 7, 2, 1, 6, 8, 11, 14, 18 };
 
 //Directions
 #define NORTH 1
@@ -140,6 +140,9 @@ int pin7 = 15;
 
 bool goLeft = true;
 //int numLoops = 0;
+
+int testAngles[27] = {0};
+int angleCount = 0;
 
 void setup(void)
 {
@@ -421,7 +424,16 @@ void loop() {
     if (intersectionCount > 10) {
       //  stopMotors();
       //  delay(1000);
+
+
+      //testing angles
+      if(angleCount == 27){
+        for (int i = 0; i < 27; i++) 
+        Serial << " " + testAngles[i];
+      }
+      
       if (!havePassenger) {
+
         //if we don't have a passenger, head in direction of greatest QSD signal
 
         int tempNode = prevNode;
@@ -440,8 +452,12 @@ void loop() {
         LCD.print(" ND ");
         LCD.print(directionMatrix[prevNode][currentNode]);
         //  delay(5000);
-
+        //for measuring the angle / turn time
+        int pre = millis();
         moveInDirection(currDir, directionMatrix[prevNode][currentNode]);
+        int post = millis();
+        testAngles[angleCount] = post - pre; 
+        angleCount++;
         currentDirection = directionMatrix[prevNode][currentNode];
 
         if (prevNode == 8 && currentNode == 10) {
@@ -753,9 +769,10 @@ void turnForward() {
 }
 
 void turnAround() {
-  motor.speed(motorRight, 75);
-  motor.speed(motorLeft, -75);
-  delay(1200);
+  while(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft)){
+    motor.speed(motorRight, 75);
+    motor.speed(motorLeft, -75);
+  }
   while (!(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft))) {
   }
 }
@@ -946,22 +963,22 @@ int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDi
   int idealNode = -1;
   if (maxSignal < 15) {
     if (startAtZero) {
-      for (int i = 0; i < 32; i++) {
+      for (int i = 0; i < 27; i++) {
         if (zeroPath[i] == prevNode && zeroPath[i + 1] == currentNode) {
           idealNode = zeroPath[i + 2];
         }
-        else if (currentNode == 0 && prevNode == 1) {
-          idealNode = 1;
+        else if (currentNode == 1 && prevNode == 6) {
+          idealNode = 2;
         }
       }
     }
     else {
-      for (int i = 0; i < 32; i++) {
+      for (int i = 0; i < 27; i++) {
         if (seventeenPath[i] == prevNode && seventeenPath[i + 1] == currentNode) {
           idealNode = seventeenPath[i + 2];
         }
-        else if (currentNode == 17 && prevNode == 18) {
-          idealNode = 18;
+        else if (currentNode == 18 && prevNode == 14) {
+          idealNode = 19;
         }
       }
     }
