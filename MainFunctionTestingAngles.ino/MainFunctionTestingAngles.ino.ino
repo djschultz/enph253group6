@@ -27,6 +27,27 @@ int zeroPath[27] = { 0, 1, 2,  7,  6,  5,  4,  5,  6, 8, 10, 9, 10, 11, 14, 13, 
 //Default path when we start at 17th node
 int seventeenPath[27] = { 17, 18, 19, 15, 14, 13, 12, 13, 14, 11, 10, 9, 10, 8, 6, 5, 4, 5, 6, 7, 2, 1, 6, 8, 11, 14, 18 };
 
+int lostMapLeft[6][6] = { { -2, 810, -2, 1519, 1108, 0715}, {1114, -3, 1814, 0207, -3, -3}, { -2, 102, -3, -3, -3, -3}, {706, 1918, -3, -3, -3 - 3}, {806, -2, -3, -3, -3 , -3}, {1514, -3, -3, -3, -3, -3}};
+int lostMapRight[6][6] = { { -2, 1110, -2, 702, 811, 1507}, {806, -3, 0106, 1915, -3, -3}, { -2, 1819, -3, -3, -3, -3}, {1514, 201, -3, -3, -3, -3}, {1114, -2, -3, -3, -3, -3}, {706, -3, -3, -3, -3, -3}};
+
+int edgeLengths[20][20] = {};
+
+
+const int dist2500 = 0;
+const int dist3500 = 1;
+const int dist4000 = 2;
+const int dist4500 = 3;
+const int dist5000 = 4;
+const int dist6000 = 5;
+
+int distanceToIndex[6] = {2500, 3500, 4000, 4500, 5000, 6000};
+
+int turnType = 2;
+int lastTurnType = 2;
+//left is 0, right is 1, forward is 2
+
+bool isLost = false;
+
 //Directions
 #define NORTH 1
 #define EAST 2
@@ -47,8 +68,8 @@ int endingNode = 15; //for testing the map
 
 //Speeds
 #define FORWARD_SPEED 90
-#define DRIVING_TURN_SPEED 120
-#define BACKING_TURN_SPEED -120
+#define DRIVING_TURN_SPEED 75
+#define BACKING_TURN_SPEED -75
 #define ROTATE_TURN_SPEED 50
 
 
@@ -144,6 +165,16 @@ bool goLeft = true;
 int testAngles[27] = {0};
 int angleCount = 0;
 
+long pre = 0;
+long post = 0;
+long lastLength = 0;
+long currLength = 0;
+int lastInd = -5;
+int lastLastInd = -5;
+int currInd = -5;
+
+int currEdge = 0;
+
 void setup(void)
 {
   // put your setup code here, to run once:
@@ -196,6 +227,39 @@ void setup(void)
   directionMatrix[18][19] = SOUTH;
   directionMatrix[19][15] = WEST;
   directionMatrix[19][18] = NORTH;
+
+  edgeLengths[1][2] = 3500;
+ // edgeLengths[1][6] = 4000;
+  edgeLengths[2][1] = 3500;
+  edgeLengths[2][7] = 4500;
+  edgeLengths[5][6] = 2500;
+ // edgeLengths[6][1] = 4000;
+  edgeLengths[6][5] = 2500;
+  edgeLengths[6][7] = 2500;
+  edgeLengths[6][8] = 2500;
+  edgeLengths[7][2] = 4500;
+  edgeLengths[7][6] = 2500;
+  edgeLengths[7][15] = 6000;
+  edgeLengths[8][6] = 2500;
+  edgeLengths[8][10] = 3500;
+  edgeLengths[8][11] = 5000;
+  edgeLengths[10][8] = 3500;
+  edgeLengths[10][11] = 3500;
+  edgeLengths[11][8] = 5000;
+  edgeLengths[11][10] = 3500;
+  edgeLengths[11][14] = 2500;
+  edgeLengths[13][14] = 2500;
+  edgeLengths[14][11] = 2500;
+  edgeLengths[14][13] = 2500;
+  edgeLengths[14][15] = 2500;
+  edgeLengths[14][18] = 4000;
+  edgeLengths[15][7] = 6000;
+  edgeLengths[15][14] = 2500;
+  edgeLengths[15][19] = 4500;
+  edgeLengths[18][14] = 4000;
+  edgeLengths[18][19] = 3500;
+  edgeLengths[19][15] = 4500;
+  edgeLengths[19][18] = 3500;
 
   //available nodes arrays
   availableNodes[0][0] = 1;
@@ -285,10 +349,10 @@ void loop() {
   QRDIntersectionLeft = digitalRead(QRDIntersectionPinLeft);
   QRDIntersectionRight = digitalRead(QRDIntersectionPinRight);
 
-  QSDLeft = analogRead(QSDPinLeft);
-  QSDRight = analogRead(QSDPinRight);
-  QSDFront = analogRead(QSDPinFront);
-  QSDBeacon = analogRead(QSDPinBeacon);
+  QSDLeft = 0;//analogRead(QSDPinLeft);
+  QSDRight = 0;//analogRead(QSDPinRight);
+  QSDFront = 0;//analogRead(QSDPinFront);
+  QSDBeacon = 0;//analogRead(QSDPinBeacon);
 
   //for debugging purposes
   if (QRDIntersectionLeft) {
@@ -390,6 +454,7 @@ void loop() {
   //DEAD END DETECTION
   if ((currentNode == 0 || currentNode == 3 || currentNode == 4 || currentNode == 9 || currentNode == 12 || currentNode == 16 || currentNode == 17) && (digitalRead(pin5) || digitalRead(pin6))) {
     // Serial.println("At dead end, turn around");
+    currInd = -5;
 
     reverseDirection();
     turnAround();
@@ -424,15 +489,109 @@ void loop() {
     if (intersectionCount > 10) {
       //  stopMotors();
       //  delay(1000);
+      if (lastLastInd == -5 && lastInd == -5 && currInd == -5) {
+        if (turnType == 0 && lastTurnType == 1) {
+          currentNode = 5;
+          prevNode = 3;
+          currentDirection = EAST;
+        }
+        else if (turnType == 1 && lastTurnType == 0) {
+          currentNode = 13;
+          prevNode = 16;
+          currentDirection = WEST;
+        }
 
-
-      //testing angles
-      if(angleCount == 27){
-        for (int i = 0; i < 27; i++) 
-        Serial << " " + testAngles[i];
+        isLost = false;
       }
-      
-      if (!havePassenger) {
+
+      pre = millis();
+      lastLastInd = lastInd;
+      lastInd = currInd;
+      currLength = pre - post;
+      currInd = getLengthIndex(currLength);
+      post = pre;
+      //leftTurn
+
+      if (lastInd >= 0 && currInd >= 0) {
+        if( abs( edgeLengths[prevNode][currentNode] - currLength) > 250 &&  edgeLengths[prevNode][currentNode] != 0){
+           isLost = true;
+        }
+
+        if (turnType == 0) {
+          currEdge = lostMapLeft[lastInd][currInd];
+        }
+        else if (turnType == 1) {
+          currEdge = lostMapRight[lastInd][currInd];
+        }
+        if (currEdge > 0 && turnType != 2) {
+          int temp;
+          int currentNodeTemp = currEdge % 100;
+          temp = currEdge / 100;
+          int prevNodeTemp = temp % 100;
+          if (currentNodeTemp != currentNode && prevNodeTemp != prevNode) {
+            isLost = true;
+          }
+          else {
+            isLost = false;
+          }
+          currentNode = currentNodeTemp;
+          prevNode = prevNodeTemp;
+          currentDirection = directionMatrix[prevNode][currentNode];
+          if (prevNode == 8 && currentNode == 10) {
+            currentDirection = EAST;
+          }
+          else if (prevNode == 8 && currentNode == 11) {
+            currentDirection = NORTH;
+          }
+          else if (prevNode == 10 && currentNode == 11) {
+            currentDirection = SOUTH;
+          }
+          else if (prevNode == 10 && currentNode == 8) {
+            currentDirection = SOUTH;
+          }
+          else if (prevNode == 11 && currentNode == 10) {
+            currentDirection = WEST;
+          }
+          else if (prevNode == 11 && currentNode == 8) {
+            currentDirection = NORTH;
+          }
+        }
+      }
+      if (isLost) {
+        if (QRDIntersectionLeft) {
+          prevNode = currentNode;
+          currentNode = getNodeAfterTurn(currentNode, currentDirection, LEFT);
+          turnLeft();
+        }
+        else if (QRDIntersectionRight) {
+          prevNode = currentNode;
+          currentNode = getNodeAfterTurn(currentNode, currentDirection, RIGHT);
+          turnRight();
+        }
+        if (currentNode != -7) {
+          currentDirection = directionMatrix[prevNode][currentNode];
+          if (prevNode == 8 && currentNode == 10) {
+            currentDirection = EAST;
+          }
+          else if (prevNode == 8 && currentNode == 11) {
+            currentDirection = NORTH;
+          }
+          else if (prevNode == 10 && currentNode == 11) {
+            currentDirection = SOUTH;
+          }
+          else if (prevNode == 10 && currentNode == 8) {
+            currentDirection = SOUTH;
+          }
+          else if (prevNode == 11 && currentNode == 10) {
+            currentDirection = WEST;
+          }
+          else if (prevNode == 11 && currentNode == 8) {
+            currentDirection = NORTH;
+          }
+          isLost = false;
+        }
+      }
+      else if (!havePassenger) {
 
         //if we don't have a passenger, head in direction of greatest QSD signal
 
@@ -440,43 +599,30 @@ void loop() {
         prevNode = currentNode;
         int currDir = currentDirection;
         currentNode = turnTowardQSDSignal(QSDLeft, QSDRight, QSDFront, currentDirection, prevNode, tempNode);
-        //debugging
-        LCD.clear();
-        LCD.print("CN ");
-        LCD.print(prevNode);
-        LCD.print(" NN ");
-        LCD.print(currentNode);
-        LCD.setCursor(3, 1);
-        LCD.print(" CD ");
-        LCD.print(currDir);
-        LCD.print(" ND ");
-        LCD.print(directionMatrix[prevNode][currentNode]);
-        //  delay(5000);
-        //for measuring the angle / turn time
-        int pre = millis();
-        moveInDirection(currDir, directionMatrix[prevNode][currentNode]);
-        int post = millis();
-        testAngles[angleCount] = post - pre; 
-        angleCount++;
-        currentDirection = directionMatrix[prevNode][currentNode];
-
-        if (prevNode == 8 && currentNode == 10) {
-          currentDirection = EAST;
+        if (currentNode == -1 || abs(directionMatrix[prevNode][currentNode] - currDir) == 2 ) {
+          isLost = true;
         }
-        else if (prevNode == 8 && currentNode == 11) {
-          currentDirection = NORTH;
-        }
-        else if (prevNode == 10 && currentNode == 11) {
-          currentDirection = SOUTH;
-        }
-        else if (prevNode == 10 && currentNode == 8) {
-          currentDirection = SOUTH;
-        }
-        else if (prevNode == 11 && currentNode == 10) {
-          currentDirection = WEST;
-        }
-        else if (prevNode == 11 && currentNode == 8) {
-          currentDirection = NORTH;
+        else {
+          moveInDirection(currDir, directionMatrix[prevNode][currentNode]);
+          currentDirection = directionMatrix[prevNode][currentNode];
+          if (prevNode == 8 && currentNode == 10) {
+            currentDirection = EAST;
+          }
+          else if (prevNode == 8 && currentNode == 11) {
+            currentDirection = NORTH;
+          }
+          else if (prevNode == 10 && currentNode == 11) {
+            currentDirection = SOUTH;
+          }
+          else if (prevNode == 10 && currentNode == 8) {
+            currentDirection = SOUTH;
+          }
+          else if (prevNode == 11 && currentNode == 10) {
+            currentDirection = WEST;
+          }
+          else if (prevNode == 11 && currentNode == 8) {
+            currentDirection = NORTH;
+          }
         }
       }
       else {
@@ -486,11 +632,11 @@ void loop() {
           endingNode == 15;
         }
         if (havePassenger) {
-        if (currentNode == 7)
-              endingNode = 15;
-            else if (currentNode == 15)
-              endingNode = 7;
-          }     
+          if (currentNode == 7)
+            endingNode = 15;
+          else if (currentNode == 15)
+            endingNode = 7;
+        }
         int idealNode = availableNodes[currentNode][0];
         if ((abs(currentDirection - directionMatrix[currentNode][idealNode]) == 2)) {
           idealNode = availableNodes[currentNode][1];
@@ -555,10 +701,12 @@ void loop() {
   }
 
   //handle collision
-  while (digitalRead(pin0) || digitalRead(pin1) || digitalRead(pin2) || digitalRead(pin3)) {
-    turnForward();
-  }
   while (digitalRead(pin4) || digitalRead(pin5) || digitalRead(pin6) || digitalRead(pin7)) {
+    delay(10);
+    if(!(digitalRead(pin4) || digitalRead(pin5) || digitalRead(pin6) || digitalRead(pin7)))
+    {
+      break;  
+    }
     //TODO: weird midpoint clearance collision case
 
     /* if (intersectionClearance < intersectionClearanceThreshold) {
@@ -570,6 +718,8 @@ void loop() {
 
       }*/
     //  else {
+    currInd = -5;
+
     reverseDirection();
     turnAround();
     int tempNode = prevNode;
@@ -608,6 +758,7 @@ void loop() {
     LCD.print(" ND ");
     LCD.print(directionMatrix[prevNode][currentNode]);
     //  delay(5000);
+    
   }
 
   //check IR if we dont have passenger
@@ -652,7 +803,7 @@ void loop() {
       stopMotors();
       pickupAnimal(RIGHT, false);
       if (analogRead(5) < 50) {
-      //  pickupAnimal(RIGHT, false); //try again
+        //  pickupAnimal(RIGHT, false); //try again
 
         havePassenger = true;
         if (abs(currentNode - 7) <= abs(currentNode - 15))
@@ -666,7 +817,7 @@ void loop() {
       stopMotors();
       pickupAnimal(RIGHT, true);
       if (analogRead(5) < 50) {
-       // pickupAnimal(RIGHT, true); //try again
+        // pickupAnimal(RIGHT, true); //try again
 
         havePassenger = true;
         if (abs(currentNode - 7) < abs(currentNode - 15))
@@ -705,11 +856,6 @@ void loop() {
       numLoops = 0;
     }
   }
-
-  Serial.println("LEFT ");
-  Serial.println(newSpeedLeft);
-  Serial.println("RIGHT ");
-  Serial.println(newSpeedRight);
   //move in the appropriate direction
   motor.speed(motorLeft, newSpeedLeft);
   motor.speed(motorRight, newSpeedRight);
@@ -721,20 +867,32 @@ void loop() {
     LCD.print("DG ");
     LCD.print(derivGain);*/
   LCD.clear();
-  LCD.print("CN ");
-  LCD.print(currentNode);
-  LCD.print(" PN ");
-  LCD.print(prevNode);
-  LCD.setCursor(3, 1);
-  LCD.print(" CD ");
-  LCD.print(currentDirection);
+
+  if (isLost) {
+    LCD.print("LOST");
+    LCD.print(" PI ");
+    LCD.print(lastInd);
+    LCD.print( "CI ");
+    LCD.print(currInd);
+    LCD.print(" LT ");
+    LCD.print(turnType);
+  }
+  else {
+    LCD.print("CN ");
+    LCD.print(currentNode);
+    LCD.print(" PN ");
+    LCD.print(prevNode);
+    LCD.setCursor(3, 1);
+    LCD.print(" CD ");
+    LCD.print(currentDirection);
+  }
 }
 
 void turnLeft() {
   //move forward a little first
   motor.speed(motorLeft, FORWARD_SPEED);
   motor.speed(motorRight, FORWARD_SPEED);
-  delay(150);
+  delay(170);
   //turn 90 degrees to the left
   motor.speed(motorRight, DRIVING_TURN_SPEED);
   motor.speed(motorLeft, BACKING_TURN_SPEED);
@@ -742,15 +900,19 @@ void turnLeft() {
   while (!(digitalRead(QRDTapePinLeft) && digitalRead(QRDTapePinRight))) {
     delay(1);
   }
-
-  QRDError = 2;
+  motor.speed(motorLeft, 75);
+  motor.speed(motorRight, -75);
+  delay(90);
+  lastTurnType = turnType;
+  turnType = 0;
+  QRDError = 0;
 }
 
 void turnRight() {
   //move forward a little first
   motor.speed(motorRight, FORWARD_SPEED);
   motor.speed(motorLeft, FORWARD_SPEED);
-  delay(150);
+  delay(170);
   //turn 90 degrees to the right
   motor.speed(motorLeft, DRIVING_TURN_SPEED);
   motor.speed(motorRight, BACKING_TURN_SPEED);
@@ -759,22 +921,40 @@ void turnRight() {
   while (!(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft))) {
     delay(1);
   }
-  QRDError = -2;
+  motor.speed(motorRight, 75);
+  motor.speed(motorLeft, -75);
+  delay(90);
+  lastTurnType = turnType;
+  turnType = 1;
+  QRDError = 0;
 }
 
 void turnForward() {
+  int turnDir;
+  if(digitalRead(QRDIntersectionPinLeft)){turnDir = LEFT;}
+  else if(digitalRead(QRDIntersectionPinRight)){turnDir = RIGHT;}
   motor.speed(motorRight, FORWARD_SPEED);
   motor.speed(motorLeft, FORWARD_SPEED);
-  delay(10);
+  delay(100);
+  
+  if(!digitalRead(QRDTapePinRight) && !digitalRead(QRDTapePinLeft)){
+      if(turnDir){turnLeft();}
+      else if(!turnDir) {turnRight();}
+  }
+  lastTurnType = turnType;
+  turnType = 2;
 }
 
 void turnAround() {
-  while(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft)){
-    motor.speed(motorRight, 75);
-    motor.speed(motorLeft, -75);
-  }
+
+  motor.speed(motorRight, 75);
+  motor.speed(motorLeft, -75);
+  delay(1000);
   while (!(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft))) {
   }
+    motor.speed(motorRight,-75);
+  motor.speed(motorLeft, 75);
+  delay(60);
 }
 
 void turn90(bool dir) {
@@ -825,12 +1005,12 @@ void moveInDirection(int currentDirection, int directionOfNode) {
   }
   else if (difference == -1 || difference == 3) {
     turnRight();
-    QRDError = -5;
+    QRDError = -1;
 
   }
   else if (difference == 1 || difference == -3) {
     turnLeft();
-    QRDError = 5;
+    QRDError = 1;
   }
 }
 
@@ -855,7 +1035,7 @@ void moveInDirection2(int currentDirection, int directionOfNode) {
   }
   else if (difference == 1 || difference == -3) {
     motor.speed(motorRight, 90);
-    motor.speed(motorLeft, -130);
+    motor.speed(motorLeft, 30);
     delay(200);
     while (!(digitalRead(QRDTapePinRight) && digitalRead(QRDTapePinLeft))) {
       delay(1);
@@ -970,6 +1150,10 @@ int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDi
         else if (currentNode == 1 && prevNode == 6) {
           idealNode = 2;
         }
+        else if (currentNode == 0 && prevNode == 1) {
+          idealNode = 1;
+        }
+
       }
     }
     else {
@@ -979,6 +1163,9 @@ int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDi
         }
         else if (currentNode == 18 && prevNode == 14) {
           idealNode = 19;
+        }
+        else if (currentNode == 17 && prevNode == 18) {
+          idealNode = 18;
         }
       }
     }
@@ -1083,7 +1270,7 @@ void pickupAnimal(bool dir, bool front) {
     RCServo1.write(extendAnglePhi[i]);
     delay(1.5 * stepDelay);
 
-    if(i > 1){
+    if (i > 1) {
       double QRDVal = analogRead(clawQRDPin);
       //  Serial.println("QRDVal");
       //  Serial.println(QRDVal);
@@ -1093,7 +1280,7 @@ void pickupAnimal(bool dir, bool front) {
         break;
       }
     }
-    
+
   }
 
   //Close claw
@@ -1153,4 +1340,41 @@ void dropoffAnimal(bool dir) {
   RCServo1.write(phiHome);
 
   turnBack90(dir);
+}
+//return Index of length
+int getLengthIndex(long edgeLength) {
+  //convert to indices
+  for (int i = 0; i < 6; i++) {
+    if (abs(edgeLength - distanceToIndex[i]) < 250) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+//return node based on turn
+int getNodeAfterTurn(int currNode, int currDirection, bool turnDir) {
+  int newDir;
+  if (currDirection == NORTH && turnDir == LEFT || currDirection == SOUTH && turnDir == RIGHT) {
+    newDir = WEST;
+  }
+  else if (currDirection == NORTH && turnDir == RIGHT || currDirection == SOUTH && turnDir == LEFT) {
+    newDir = EAST;
+  }
+  else if (currDirection == EAST && turnDir == LEFT || currDirection == WEST && turnDir == RIGHT) {
+    newDir = NORTH;
+  }
+  else if (currDirection == EAST && turnDir == RIGHT || currDirection == WEST && turnDir == LEFT) {
+    newDir = SOUTH;
+  }
+
+  for (int i = 0; i < 4; i++) {
+    int availNode = availableNodes[currNode][i];
+    if (availNode != 50) {
+      if (directionMatrix[currNode][availNode] == newDir) {
+        return availNode;
+      }
+    }
+  }
+  return -7;
 }
