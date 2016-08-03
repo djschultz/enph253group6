@@ -561,84 +561,80 @@ void loop() {
     //TODO: weird midpoint clearance collision case
 
     if (intersectionClearance < intersectionClearanceThreshold) {
-      reverseDirection();
-      turnAround();
+      //tape follow backwards
+
+
+
+      propGainB = 15; //knob(6);
+      derivGainB = 65; //knob(7);
+      while (!digitalRead(QRDIntersectionPinLeft) && !digitalRead(QRDIntersectionPinRight))
+      {
+        QRDLeftB = digitalRead(QRDBackPinLeft);
+        QRDRightB = digitalRead(QRDBackPinRight);
+
+        if (QRDErrorB != QRDErrorPrevDiffB) {
+          QRDErrorPrevDiffB = QRDErrorB;
+          prevNumLoopsB = currNumLoopsB;
+        }
+
+        if (QRDLeftB && QRDRightB) {
+          QRDErrorB = 0;
+        }
+        else if (QRDRightB && !QRDLeftB) {
+          QRDError = 1;
+        }
+        else if (!QRDRightB && QRDLeftB) {
+          QRDError = -1;
+        }
+        else {
+          if (QRDErrorPrevB > 0) {
+            QRDErrorB = 3;
+          }
+          else {
+            QRDErrorB = -3;
+          }
+        }
+
+        // if the robot is off the tape, tape follow
+        // calculate the derivation & propotional gains and the appropriate tape following speeds
+
+        derivTermB = (int)((float)derivGainB * (float)(QRDErrorB - QRDErrorPrevDiffB) / (float)(prevNumLoopsB + currNumLoopsB));
+        propTermB = propGainB * QRDErrorB;
+
+        newSpeedLeftB = -defaultSpeed - propTermB - derivTermB;
+        newSpeedRightB = -defaultSpeed + propTermB + derivTermB;
+
+        QRDErrorPrevB = QRDErrorB;
+
+        // do not exceed the maximum speeds for either motor
+        if (newSpeedLeftB > 255) newSpeedLeftB = 255;
+        else if (newSpeedLeftB < -255) newSpeedLeftB = -255;
+        if (newSpeedRightB > 255) newSpeedRightB = 255;
+        else if (newSpeedRightB < -255) newSpeedRightB = -255;
+
+        if (newSpeedLeftB < 10 && newSpeedLeftB > 0) {
+          newSpeedLeftB = 10;
+        }
+        else if (newSpeedLeftB > -10 && newSpeedLeftB < 0) {
+          newSpeedLeftB = -10;
+        }
+        if (newSpeedRightB < 10 && newSpeedRightB > 0) {
+          newSpeedRightB = 10;
+        }
+        else if (newSpeedRightB > -10 && newSpeedRightB < 0) {
+          newSpeedRightB = -10;
+        }
+
+         motor.speed(motorLeft, newSpeedLeftB);
+         motor.speed(motorRight, newSpeedRightB);
       
-      currentNode = findCorrectDirection(currentDirection, tempNode, prevNode)
+      }
 
 
-      /*
-         // tape follow backwards
-            propGainB = 15; //knob(6);
-            derivGainB = 65; //knob(7);
-            while (!digitalRead(QRDIntersectionPinLeft) && !digitalRead(QRDIntersectionPinRight))
-            {
-              QRDLeftB = digitalRead(QRDBackPinLeft);
-              QRDRightB = digitalRead(QRDBackPinRight);
+      currentNode = turnTowardsQSDSignal2(currentDirection, prevNode);
 
-              if (QRDErrorB != QRDErrorPrevDiffB) {
-                QRDErrorPrevDiffB = QRDErrorB;
-                prevNumLoopsB = currNumLoopsB;
-              }
-
-              if (QRDLeftB && QRDRightB) {
-                QRDErrorB = 0;
-              }
-              else if (QRDRightB && !QRDLeftB) {
-                QRDError = 1;
-              }
-              else if (!QRDRightB && QRDLeftB) {
-                QRDError = -1;
-              }
-              else {
-                if (QRDErrorPrevB > 0) {
-                  QRDErrorB = 3;
-                }
-                else {
-                  QRDErrorB = -3;
-                }
-              }
-
-              // if the robot is off the tape, tape follow
-              // calculate the derivation & propotional gains and the appropriate tape following speeds
-
-              derivTermB = (int)((float)derivGainB * (float)(QRDErrorB - QRDErrorPrevDiffB) / (float)(prevNumLoopsB + currNumLoopsB));
-              propTermB = propGainB * QRDErrorB;
-
-              newSpeedLeftB = -defaultSpeed - propTermB - derivTermB;
-              newSpeedRightB = -defaultSpeed + propTermB + derivTermB;
-
-              QRDErrorPrevB = QRDErrorB;
-
-              // do not exceed the maximum speeds for either motor
-              if (newSpeedLeftB > 255) newSpeedLeftB = 255;
-              else if (newSpeedLeftB < -255) newSpeedLeftB = -255;
-              if (newSpeedRightB > 255) newSpeedRightB = 255;
-              else if (newSpeedRightB < -255) newSpeedRightB = -255;
-
-              if (newSpeedLeftB < 10 && newSpeedLeftB > 0) {
-                newSpeedLeftB = 10;
-              }
-              else if (newSpeedLeftB > -10 && newSpeedLeftB < 0) {
-                newSpeedLeftB = -10;
-              }
-              if (newSpeedRightB < 10 && newSpeedRightB > 0) {
-                newSpeedRightB = 10;
-              }
-              else if (newSpeedRightB > -10 && newSpeedRightB < 0) {
-                newSpeedRightB = -10;
-              }
-
-               motor.speed(motorLeft, newSpeedLeftB);
-               motor.speed(motorRight, newSpeedRightB);
-
-            }
-
-
-            currentNode = turnTowardsQSDSignal2(currentDirection, prevNode);
-
-            moveInDirection2(currentDirection, directionMatrix[prevNode][currentNode]);
-            currentDirection = directionMatrix[prevNode][currentNode]; */
+      moveInDirection2(currentDirection, directionMatrix[prevNode][currentNode]);
+      currentDirection = directionMatrix[prevNode][currentNode];
 
 
     }
@@ -649,7 +645,6 @@ void loop() {
       prevNode = currentNode;
       currentNode = tempNode;
     }
-
     if (prevNode == 8 && currentNode == 10) {
       currentDirection = EAST;
     }
@@ -977,40 +972,6 @@ int turnTowardsQSDSignal2(int currentDirection, int currentNode) {
   return idealNode;
 }
 
-int findCorrectDirection(int currentDirection, int currentNode, int prevNode) {
-  int ableToTurn[3] = { -1, -1, -1 }; //Left, Forward, Right - nodes from current node
-  for (int i = 0; i < 4; i++) {
-    int availNode = availableNodes[currentNode][i];
-    if (availNode != 50) {
-      int availDir = currentDirection - directionMatrix[currentNode][availNode];
-      if (availDir == -1 || availDir == 3) {
-        //    Serial.println("Right Node");
-        //    Serial.println(availNode);
-
-        ableToTurn[2] = availNode;
-      }
-      else if (availDir == 0) {
-        //   Serial.println("Forward Node");
-        //   Serial.println(availNode);
-        ableToTurn[1] = availNode;
-      }
-      else if (availDir == 1 || availDir == -3) {
-        //  Serial.println("Left Node");
-        //  Serial.println(availNode);
-        ableToTurn[0] = availNode;
-      }
-    }
-  }
-
-  if (ableToTurn[2] != -1) {
-    return ableToTurn[2];
-  }
-  else if (ableToTurn[1] != -1) {
-    return ableToTurn[1];
-  }
-  
-  return ableToTurn[0];
-}
 
 int turnTowardQSDSignal(int QSDLeft, int QSDRight, int QSDForward, int currentDirection, int currentNode, int prevNode) {
   int ableToTurn[3] = { -1, -1, -1 }; //Left, Forward, Right - nodes from current node
